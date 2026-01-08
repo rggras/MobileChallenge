@@ -9,60 +9,107 @@ import Combine
 
 final class CitiesViewModel: ObservableObject {
     @Published private(set) var filteredCities: [City] = []
+    @Published private(set) var favouriteCityIds: Set<Int> = []
+    @Published private(set) var isFavouriteModeEnabled = false
+    @Published var filterKeyword = ""
     // TODO: In a Production code we may want to inject this
     private let cityService = CityService()
+    // TODO: In a Production code we may want to inject this
+    private let favouritesRepository = FavouritesRepository()
     private var indexedCities: [CityIndex] = []
     
     enum Action {
         case onAppear
-        case filter(String)
+        case filter
+        case toggleFavourite(City)
+        case toggleFavouriteMode
+    }
+    
+    init() {
+        favouriteCityIds = favouritesRepository.fetch()
     }
     
     func perform(action: Action) {
         switch action {
         case .onAppear:
             fetchCities()
-        case let .filter(keyword):
-            filterCities(by: keyword)
+        case .filter:
+            filterCities()
+        case let .toggleFavourite(city):
+            toggleFavourite(for: city)
+        case .toggleFavouriteMode:
+            toggleFavouriteMode()
         }
     }
     
     @MainActor
     private func fetchCities() {
+        guard indexedCities.isEmpty else { return }
+        
         Task {
             do {
                 let response = try await cityService.fetchCities()
                 let indices = response.map { CityIndex(city: $0) }
                 indexedCities = indices.sorted { $0.index < $1.index }
-                filterCities(by: "")
+                filterCities()
             } catch {
                 // TODO: In a Production code we may want to handle errors
             }
         }
     }
     
+    // MARK: - Favourite logic
+    private func toggleFavouriteMode() {
+        isFavouriteModeEnabled.toggle()
+        filterCities()
+    }
+    
+    private func toggleFavourite(for city: City) {
+        if favouriteCityIds.contains(city.id) {
+            favouriteCityIds.remove(city.id)
+        } else {
+            favouriteCityIds.insert(city.id)
+        }
+        
+        favouritesRepository.save(favouriteCityIds)
+        filterCities()
+    }
+    
+    func isFavourite(_ city: City) -> Bool {
+        favouriteCityIds.contains(city.id)
+    }
+    
     // MARK: - Filtering logic
-    // TOOD: Filter by favourites
-    // We are using the binary search principle to improve the filter time
-    private func filterCities(by keyword: String) {
-        guard !keyword.isEmpty else {
-            filteredCities = indexedCities.map { $0.city }
+    private func filterCities() {
+        let cities = filterCitiesByPrefix()
+        
+        guard !isFavouriteModeEnabled else {
+            filteredCities = favouriteCityIds
+                .compactMap { id in indexedCities.first { $0.city.id == id }?.city }
             return
         }
         
-        let lowercasedKeyword = keyword.lowercased()
+        filteredCities = cities
+    }
+    
+    private func filterCitiesByPrefix() -> [City] {
+        guard !filterKeyword.isEmpty else {
+            return indexedCities.map { $0.city }
+        }
+        
+        let lowercasedKeyword = filterKeyword.lowercased()
         let initialIndex = firstIndex(of: lowercasedKeyword)
         // "\u{FFFF}" is a high value unicode character
         let finalIndex = firstIndex(of: lowercasedKeyword + "\u{FFFF}")
 
         guard initialIndex < finalIndex else {
-            filteredCities = []
-            return
+            return []
         }
         
-        filteredCities = indexedCities[initialIndex..<finalIndex].map { $0.city }
+        return indexedCities[initialIndex..<finalIndex].map { $0.city }
     }
     
+    // We are using the binary search principle to improve the filter time
     private func firstIndex(of keyword: String) -> Int {
         var initialIndex = 0
         var finalIndex = indexedCities.count
