@@ -9,15 +9,29 @@ import SwiftUI
 
 struct CitiesView: View {
     @StateObject private var viewModel = CitiesViewModel()
+    @State private var filterKeyword = ""
     
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, uala!")
+        NavigationStack {
+            List {
+                ForEach(viewModel.filteredCities) { city in
+                    makeRow(from: city)
+                }
+            }
+            .searchable(text: $filterKeyword, prompt: "Search cities")
+            .navigationTitle("Cities")
+            .listStyle(.plain)
+            .task {
+                viewModel.perform(action: .onAppear)
+            }
+            .task(id: filterKeyword) {
+                viewModel.perform(action: .filter(filterKeyword))
+            }
         }
-        .padding()
+    }
+    
+    private func makeRow(from city: City) -> some View {
+        Text("\(city.name), \(city.country)")
     }
 }
 

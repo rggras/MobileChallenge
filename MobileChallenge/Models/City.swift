@@ -7,26 +7,24 @@
 
 import Foundation
 
-struct City: Codable {
+struct City: Codable, Identifiable {
     let id: Int
     let country: String
     let name: String
     let coordinate: Coordinate
+    
+    var fullName: String {
+        "\(name), \(country)"
+    }
+    
+    var fullCoordinate: String {
+        "\(coordinate.latitude), \(coordinate.longitude)"
+    }
     
     enum CodingKeys: String, CodingKey {
         case id = "_id"
         case country
         case name
         case coordinate = "coord"
-    }
-}
-
-struct Coordinate: Codable {
-    let longitude: Double
-    let latitude: Double
-    
-    enum CodingKeys: String, CodingKey {
-        case longitude = "lon"
-        case latitude = "lat"
     }
 }
