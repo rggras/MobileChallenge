@@ -12,10 +12,8 @@ final class CitiesViewModel: ObservableObject {
     @Published private(set) var favouriteCityIds: Set<Int> = []
     @Published private(set) var isFavouriteModeEnabled = false
     @Published var filterKeyword = ""
-    // TODO: In a Production code we may want to inject this
-    private let cityService = CityService()
-    // TODO: In a Production code we may want to inject this
-    private let favouritesRepository = FavouritesRepository()
+    private let cityService: CityService
+    private let favouritesRepository: FavouritesRepository
     private var indexedCities: [CityIndex] = []
     
     enum Action {
@@ -25,7 +23,12 @@ final class CitiesViewModel: ObservableObject {
         case toggleFavouriteMode
     }
     
-    init() {
+    init(
+        cityService: CityService = RemoteCityService(),
+        favouritesRepository: FavouritesRepository = UserDefaultsFavouritesRepository()
+    ) {
+        self.cityService = cityService
+        self.favouritesRepository = favouritesRepository
         favouriteCityIds = favouritesRepository.fetch()
     }
     
@@ -45,6 +48,8 @@ final class CitiesViewModel: ObservableObject {
     @MainActor
     private func fetchCities() {
         guard indexedCities.isEmpty else { return }
+        
+        // TODO: In a Production code we may want to add a loading state here
         
         Task {
             do {
@@ -84,8 +89,13 @@ final class CitiesViewModel: ObservableObject {
         let cities = filterCitiesByPrefix()
         
         guard !isFavouriteModeEnabled else {
-            filteredCities = favouriteCityIds
-                .compactMap { id in indexedCities.first { $0.city.id == id }?.city }
+            if !filterKeyword.isEmpty {
+                filteredCities = cities
+                    .filter { favouriteCityIds.contains($0.id) }
+            } else {
+                filteredCities = favouriteCityIds
+                    .compactMap { id in indexedCities.first { $0.city.id == id }?.city }
+            }
             return
         }
         

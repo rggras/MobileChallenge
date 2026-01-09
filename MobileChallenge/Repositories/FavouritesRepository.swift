@@ -7,11 +7,16 @@
 
 import Foundation
 
-final class FavouritesRepository {
+protocol FavouritesRepository {
+    func save(_ ids: Set<Int>)
+    func fetch() -> Set<Int>
+}
+
+final class UserDefaultsFavouritesRepository: FavouritesRepository {
     private let favouritesKey = "mobile-challenge-favourites"
     
-    func save(_ cityIds: Set<Int>) {
-        UserDefaults.standard.set(Array(cityIds), forKey: favouritesKey)
+    func save(_ ids: Set<Int>) {
+        UserDefaults.standard.set(Array(ids), forKey: favouritesKey)
     }
     
     func fetch() -> Set<Int> {

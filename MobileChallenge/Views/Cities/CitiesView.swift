@@ -53,8 +53,6 @@ struct CitiesView: View {
     @ViewBuilder
     private var content: some View {
         GeometryReader { geometry in
-            let portrait = geometry.size.width < geometry.size.height
-            
             if isPortrait {
                 citiesListView
             } else {
@@ -66,7 +64,7 @@ struct CitiesView: View {
             
             Color.clear
                 .onAppear {
-                    isPortrait = portrait
+                    isPortrait = geometry.size.width < geometry.size.height
                 }
                 .onChange(of: geometry.size) { _, _ in
                     isPortrait = geometry.size.width < geometry.size.height
